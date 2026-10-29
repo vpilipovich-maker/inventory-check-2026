@@ -1,7 +1,10 @@
 <!DOCTYPE html>
 <html lang="uk">
+
 <head>
+
 <meta charset="UTF-8">
+
 <meta name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1">
 
@@ -10,6 +13,7 @@
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
 <style>
+
 :root {
   --blue: #174a84;
   --green: #198754;
@@ -205,7 +209,26 @@ input {
   color: #52657b;
 }
 
+#labelButton {
+  width: 100%;
+  margin-top: 12px;
+  background: var(--orange);
+  display: none;
+}
+
+#labelButton:disabled {
+  opacity: 0.5;
+}
+
+#labelStatus {
+  text-align: center;
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
 </style>
+
 </head>
 
 <body>
@@ -232,6 +255,7 @@ input {
     <div id="reader"></div>
 
     <div class="controls">
+
       <button id="startButton" onclick="startScanner()">
         ▶ Увімкнути камеру
       </button>
@@ -239,6 +263,7 @@ input {
       <button id="stopButton" onclick="stopScanner()" disabled>
         ■ Зупинити
       </button>
+
     </div>
 
     <div class="small">
@@ -261,6 +286,12 @@ input {
     <div id="scanCount">
       Успішних сканувань за сеанс: 0
     </div>
+
+    <button id="labelButton" onclick="replaceLabel()">
+      🟠 Замінити наліпку
+    </button>
+
+    <div id="labelStatus"></div>
 
   </div>
 
@@ -287,10 +318,14 @@ input {
 
     </div>
 
-    <div class="small" id="percent">Завантаження статистики...</div>
+    <div class="small" id="percent">
+      Завантаження статистики...
+    </div>
 
     <div class="controls">
-      <button onclick="loadStats()">Оновити статистику</button>
+      <button onclick="loadStats()">
+        Оновити статистику
+      </button>
     </div>
 
   </div>
@@ -346,6 +381,10 @@ let successfulScans = 0;
 
 let audioContext = null;
 let requestCounter = 0;
+
+// Номер, для якого доступна заміна наліпки.
+
+let currentInventoryNumber = "";
 
 
 // ======================================================
@@ -462,14 +501,11 @@ function apiRequest(action, params = {}) {
     const script = document.createElement("script");
 
     let completed = false;
-
     let timer = null;
 
     function cleanup() {
 
-      if (timer) {
-        clearTimeout(timer);
-      }
+      if (timer) clearTimeout(timer);
 
       if (script.parentNode) {
         script.parentNode.removeChild(script);
@@ -490,11 +526,8 @@ function apiRequest(action, params = {}) {
 
       cleanup();
 
-      if (error) {
-        reject(error);
-      } else {
-        resolve(data);
-      }
+      if (error) reject(error);
+      else resolve(data);
     }
 
     window[callbackName] = function(data) {
@@ -516,11 +549,9 @@ function apiRequest(action, params = {}) {
     };
 
     timer = setTimeout(() => {
-
       finish(new Error(
         "Час очікування відповіді сервера минув."
       ));
-
     }, SETTINGS.requestTimeout);
 
     script.src = url.toString();
@@ -557,9 +588,6 @@ async function processScan(rawNumber) {
 
   if (processing) return;
 
-  // Захист від багаторазового зчитування одного
-  // штрихкоду протягом короткого проміжку часу.
-
   if (
     number === lastScannedNumber &&
     now - lastScannedTime < SETTINGS.scanInterval
@@ -571,6 +599,14 @@ async function processScan(rawNumber) {
 
   lastScannedNumber = number;
   lastScannedTime = now;
+
+  // Скидаємо кнопку попереднього номера.
+
+  currentInventoryNumber = "";
+
+  document.getElementById("labelButton").style.display = "none";
+
+  document.getElementById("labelStatus").textContent = "";
 
   document.getElementById("lastNumber").textContent = number;
 
@@ -611,6 +647,12 @@ async function processScan(rawNumber) {
 
       return;
     }
+
+    // Номер знайдено — дозволяємо заміну наліпки.
+
+    currentInventoryNumber = number;
+
+    document.getElementById("labelButton").style.display = "block";
 
     soundConfirmed();
 
@@ -653,10 +695,71 @@ async function processScan(rawNumber) {
 
   } finally {
 
-    // Даємо завершити звуковому підтвердженню.
     await new Promise(resolve => setTimeout(resolve, 250));
 
     processing = false;
+  }
+}
+
+
+// ======================================================
+// ЗАМІНА НАЛІПКИ
+// ======================================================
+
+async function replaceLabel() {
+
+  const number = currentInventoryNumber;
+
+  if (!number) {
+
+    setStatus(
+      "Спочатку відскануй інвентарний номер.",
+      "warning"
+    );
+
+    return;
+  }
+
+  const button = document.getElementById("labelButton");
+
+  button.disabled = true;
+
+  document.getElementById("labelStatus").textContent =
+    "Додаємо номер до переліку заміни наліпок...";
+
+  try {
+
+    const result = await apiRequest("label", {
+      number: number
+    });
+
+    if (!result || !result.success) {
+
+      soundError();
+
+      document.getElementById("labelStatus").textContent =
+        result?.message || "Помилка запису.";
+
+      return;
+    }
+
+    soundConfirmed();
+
+    document.getElementById("labelStatus").textContent =
+      "✓ № " + number +
+      " додано до переліку заміни наліпок. Рядок " +
+      result.labelRow;
+
+  } catch (error) {
+
+    soundError();
+
+    document.getElementById("labelStatus").textContent =
+      "Помилка: " + error.message;
+
+  } finally {
+
+    button.disabled = false;
   }
 }
 
@@ -761,8 +864,7 @@ async function startScanner() {
     document.getElementById("stopButton").disabled = false;
 
     setStatus(
-      "Камера працює. Очікування штрихкоду...",
-      ""
+      "Камера працює. Очікування штрихкоду..."
     );
 
   } catch (error) {
