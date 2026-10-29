@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1">
+
+<title>Держмитслужба. Інвентаризація 2026</title>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+<style>
+:root {
+  --blue: #174a84;
+  --green: #198754;
+  --red: #c62828;
+  --orange: #d97706;
+  --background: #f1f4f8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: var(--background);
+  color: #202a35;
+}
+
+header {
+  background: var(--blue);
+  color: white;
+  text-align: center;
+  padding: 16px 10px;
+}
+
+header h1 {
+  font-size: 21px;
+  margin: 0 0 5px;
+}
+
+header p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.container {
+  max-width: 680px;
+  margin: auto;
+  padding: 12px;
+}
+
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 7px #00000012;
+}
+
+h2 {
+  font-size: 17px;
+  margin: 0 0 12px;
+}
+
+#reader {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #111;
+}
+
+#reader video {
+  width: 100% !important;
+  object-fit: cover;
+}
+
+button, select, input {
+  font-size: 16px;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+button {
+  border: none;
+  background: var(--blue);
+  color: white;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+button:disabled {
+  opacity: 0.5;
+}
+
+.controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.controls button {
+  flex: 1;
+}
+
+select {
+  width: 100%;
+  background: white;
+  border: 1px solid #ccd4dd;
+  margin-bottom: 10px;
+}
+
+input {
+  width: 100%;
+  border: 1px solid #ccd4dd;
+}
+
+.manual {
+  display: flex;
+  gap: 8px;
+}
+
+.manual input {
+  flex: 1;
+  min-width: 0;
+}
+
+.manual button {
+  flex: 0 0 auto;
+}
+
+.status {
+  padding: 15px;
+  border-radius: 10px;
+  background: #e8eef5;
+  text-align: center;
+  font-size: 17px;
+  font-weight: bold;
+  min-height: 60px;
+}
+
+.status.success {
+  background: #d9f4e3;
+  color: #116c36;
+}
+
+.status.error {
+  background: #ffe0e0;
+  color: #a52222;
+}
+
+.status.warning {
+  background: #fff0ce;
+  color: #925800;
+}
+
+.status.processing {
+  background: #e1edff;
+  color: #174a84;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.stat {
+  text-align: center;
+  padding: 12px 5px;
+  border-radius: 10px;
+  background: #edf2f8;
+}
+
+.stat .number {
+  font-size: 25px;
+  font-weight: bold;
+  color: var(--blue);
+}
+
+.stat .label {
+  font-size: 12px;
+  margin-top: 5px;
+}
+
+.small {
+  color: #64748b;
+  font-size: 13px;
+  text-align: center;
+  margin-top: 10px;
+}
+
+#lastNumber {
+  font-size: 23px;
+  font-weight: bold;
+  text-align: center;
+  margin: 10px 0;
+}
+
+#scanCount {
+  text-align: center;
+  font-size: 14px;
+  color: #52657b;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>Держмитслужба</h1>
+  <p>Інвентаризація 2026 — перевірка обладнання</p>
+</header>
+
+<div class="container">
+
+  <div class="card">
+
+    <h2>Сканування штрихкодів Code 128</h2>
+
+    <label for="resolution">Роздільна здатність камери</label>
+
+    <select id="resolution">
+      <option value="640">640 — швидше</option>
+      <option value="1280" selected>1280 — рекомендовано</option>
+      <option value="1920">1920 — висока якість</option>
+    </select>
+
+    <div id="reader"></div>
+
+    <div class="controls">
+      <button id="startButton" onclick="startScanner()">
+        ▶ Увімкнути камеру
+      </button>
+
+      <button id="stopButton" onclick="stopScanner()" disabled>
+        ■ Зупинити
+      </button>
+    </div>
+
+    <div class="small">
+      Наведи камеру на штрихкод інвентарного номера.
+      Сканування безперервне.
+    </div>
+
+  </div>
+
+  <div class="card">
+
+    <h2>Результат сканування</h2>
+
+    <div id="status" class="status">
+      Натисни «Увімкнути камеру»
+    </div>
+
+    <div id="lastNumber">—</div>
+
+    <div id="scanCount">
+      Успішних сканувань за сеанс: 0
+    </div>
+
+  </div>
+
+  <div class="card">
+
+    <h2>Статистика інвентаризації</h2>
+
+    <div class="stats">
+
+      <div class="stat">
+        <div class="number" id="total">—</div>
+        <div class="label">Усього</div>
+      </div>
+
+      <div class="stat">
+        <div class="number" id="checked">—</div>
+        <div class="label">Перевірено</div>
+      </div>
+
+      <div class="stat">
+        <div class="number" id="remaining">—</div>
+        <div class="label">Залишилось</div>
+      </div>
+
+    </div>
+
+    <div class="small" id="percent">Завантаження статистики...</div>
+
+    <div class="controls">
+      <button onclick="loadStats()">Оновити статистику</button>
+    </div>
+
+  </div>
+
+  <div class="card">
+
+    <h2>Ручне введення номера</h2>
+
+    <div class="manual">
+
+      <input
+        type="text"
+        id="manualNumber"
+        placeholder="Інвентарний номер"
+        autocomplete="off"
+      >
+
+      <button onclick="manualScan()">
+        Знайти
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+
+// ======================================================
+// НАЛАШТУВАННЯ
+// ======================================================
+
+const API_URL =
+  "https://script.google.com/macros/s/AKfycbwMsDTNEFRE5HkOUWLXdqwJSkQJQ1isXXbH_dkjVA2srEOj9F6ocssRHxG7aXAt3O5Hjg/exec";
+
+const SETTINGS = {
+  scanInterval: 1000,
+  requestTimeout: 20000,
+  statsInterval: 30000
+};
+
+let scanner = null;
+let scannerRunning = false;
+let scannerStarting = false;
+
+let processing = false;
+
+let lastScannedNumber = "";
+let lastScannedTime = 0;
+
+let successfulScans = 0;
+
+let audioContext = null;
+let requestCounter = 0;
+
+
+// ======================================================
+// ЗВУК
+// ======================================================
+
+function initAudio() {
+
+  try {
+
+    if (!audioContext) {
+      audioContext = new (
+        window.AudioContext ||
+        window.webkitAudioContext
+      )();
+    }
+
+    if (audioContext.state === "suspended") {
+      audioContext.resume().catch(() => {});
+    }
+
+  } catch (error) {
+    console.warn("Аудіо недоступне:", error);
+  }
+}
+
+
+function playTone(frequency, duration, volume = 0.18) {
+
+  try {
+
+    if (!audioContext) return;
+
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    oscillator.type = "sine";
+    oscillator.frequency.value = frequency;
+
+    gain.gain.setValueAtTime(
+      volume,
+      audioContext.currentTime
+    );
+
+    gain.gain.exponentialRampToValueAtTime(
+      0.001,
+      audioContext.currentTime + duration
+    );
+
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+
+    oscillator.start();
+    oscillator.stop(
+      audioContext.currentTime + duration
+    );
+
+  } catch (error) {
+    console.warn("Помилка звуку:", error);
+  }
+}
+
+
+function soundRead() {
+  playTone(900, 0.09);
+}
+
+
+function soundConfirmed() {
+
+  playTone(1100, 0.12);
+
+  setTimeout(() => {
+    playTone(1450, 0.15);
+  }, 150);
+}
+
+
+function soundError() {
+  playTone(350, 0.25);
+}
+
+
+// ======================================================
+// СТАТУС
+// ======================================================
+
+function setStatus(message, type = "") {
+
+  const element = document.getElementById("status");
+
+  element.className = "status";
+
+  if (type) {
+    element.classList.add(type);
+  }
+
+  element.textContent = message;
+}
+
+
+// ======================================================
+// JSONP ЗАПИТИ ДО GOOGLE APPS SCRIPT
+// ======================================================
+
+function apiRequest(action, params = {}) {
+
+  return new Promise((resolve, reject) => {
+
+    const id = ++requestCounter;
+
+    const callbackName = "inventoryCallback_" + id;
+
+    const script = document.createElement("script");
+
+    let completed = false;
+
+    let timer = null;
+
+    function cleanup() {
+
+      if (timer) {
+        clearTimeout(timer);
+      }
+
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+
+      try {
+        delete window[callbackName];
+      } catch (error) {
+        window[callbackName] = undefined;
+      }
+    }
+
+    function finish(error, data) {
+
+      if (completed) return;
+
+      completed = true;
+
+      cleanup();
+
+      if (error) {
+        reject(error);
+      } else {
+        resolve(data);
+      }
+    }
+
+    window[callbackName] = function(data) {
+      finish(null, data);
+    };
+
+    const url = new URL(API_URL);
+
+    url.searchParams.set("action", action);
+    url.searchParams.set("callback", callbackName);
+    url.searchParams.set("_", String(Date.now()));
+
+    Object.entries(params).forEach(([key, value]) => {
+      url.searchParams.set(key, String(value));
+    });
+
+    script.onerror = function() {
+      finish(new Error("Помилка з'єднання із сервером."));
+    };
+
+    timer = setTimeout(() => {
+
+      finish(new Error(
+        "Час очікування відповіді сервера минув."
+      ));
+
+    }, SETTINGS.requestTimeout);
+
+    script.src = url.toString();
+
+    document.head.appendChild(script);
+
+  });
+}
+
+
+// ======================================================
+// НОРМАЛІЗАЦІЯ НОМЕРА
+// ======================================================
+
+function normalizeNumber(value) {
+
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, "");
+}
+
+
+// ======================================================
+// СКАНУВАННЯ
+// ======================================================
+
+async function processScan(rawNumber) {
+
+  const number = normalizeNumber(rawNumber);
+
+  if (!number) return;
+
+  const now = Date.now();
+
+  if (processing) return;
+
+  // Захист від багаторазового зчитування одного
+  // штрихкоду протягом короткого проміжку часу.
+
+  if (
+    number === lastScannedNumber &&
+    now - lastScannedTime < SETTINGS.scanInterval
+  ) {
+    return;
+  }
+
+  processing = true;
+
+  lastScannedNumber = number;
+  lastScannedTime = now;
+
+  document.getElementById("lastNumber").textContent = number;
+
+  soundRead();
+
+  setStatus(
+    "Зчитано № " + number + ". Перевіряємо...",
+    "processing"
+  );
+
+  try {
+
+    const result = await apiRequest("scan", {
+      number: number
+    });
+
+    if (!result || !result.success) {
+
+      soundError();
+
+      setStatus(
+        result?.message || result?.error ||
+        "Помилка обробки номера.",
+        "error"
+      );
+
+      return;
+    }
+
+    if (!result.found) {
+
+      soundError();
+
+      setStatus(
+        "Номер " + number + " не знайдено у відомості.",
+        "warning"
+      );
+
+      return;
+    }
+
+    soundConfirmed();
+
+    successfulScans++;
+
+    document.getElementById("scanCount").textContent =
+      "Успішних сканувань за сеанс: " + successfulScans;
+
+    if (result.status === "already_checked") {
+
+      setStatus(
+        "№ " + number +
+        " → D" + result.row +
+        ". Уже перевірено.",
+        "success"
+      );
+
+    } else {
+
+      setStatus(
+        "№ " + number +
+        " → D" + result.row +
+        ". Обладнання перевірено!",
+        "success"
+      );
+    }
+
+    if (result.stats) {
+      updateStats(result.stats);
+    }
+
+  } catch (error) {
+
+    soundError();
+
+    setStatus(
+      "Помилка сервера: " + error.message,
+      "error"
+    );
+
+  } finally {
+
+    // Даємо завершити звуковому підтвердженню.
+    await new Promise(resolve => setTimeout(resolve, 250));
+
+    processing = false;
+  }
+}
+
+
+// ======================================================
+// ЗАПУСК КАМЕРИ
+// ======================================================
+
+async function startScanner() {
+
+  if (scannerRunning || scannerStarting) return;
+
+  if (typeof Html5Qrcode === "undefined") {
+
+    setStatus(
+      "Не завантажилася бібліотека сканування.",
+      "error"
+    );
+
+    return;
+  }
+
+  scannerStarting = true;
+
+  initAudio();
+
+  const resolution = Number(
+    document.getElementById("resolution").value
+  );
+
+  setStatus("Запускаємо камеру...", "processing");
+
+  document.getElementById("startButton").disabled = true;
+
+  try {
+
+    if (!scanner) {
+
+      scanner = new Html5Qrcode("reader", {
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.CODE_128
+        ],
+        verbose: false
+      });
+    }
+
+    const cameraConfig = {
+      facingMode: "environment"
+    };
+
+    const scanConfig = {
+
+      fps: 15,
+
+      qrbox: function(width, height) {
+
+        return {
+          width: Math.floor(width * 0.88),
+          height: Math.max(
+            70,
+            Math.floor(height * 0.32)
+          )
+        };
+      },
+
+      aspectRatio: 1.777778,
+
+      videoConstraints: {
+
+        facingMode: "environment",
+
+        width: {
+          ideal: resolution
+        },
+
+        height: {
+          ideal: Math.round(resolution * 0.5625)
+        }
+
+      }
+
+    };
+
+    await scanner.start(
+
+      cameraConfig,
+
+      scanConfig,
+
+      function(decodedText) {
+        processScan(decodedText);
+      },
+
+      function(errorMessage) {
+        // Помилки окремих кадрів не показуємо.
+      }
+
+    );
+
+    scannerRunning = true;
+
+    document.getElementById("stopButton").disabled = false;
+
+    setStatus(
+      "Камера працює. Очікування штрихкоду...",
+      ""
+    );
+
+  } catch (error) {
+
+    scannerRunning = false;
+
+    setStatus(
+      "Не вдалося запустити камеру: " +
+      String(error.message || error),
+      "error"
+    );
+
+    document.getElementById("startButton").disabled = false;
+
+  } finally {
+
+    scannerStarting = false;
+  }
+}
+
+
+// ======================================================
+// ЗУПИНКА КАМЕРИ
+// ======================================================
+
+async function stopScanner() {
+
+  if (!scanner || !scannerRunning) return;
+
+  try {
+
+    await scanner.stop();
+
+    scannerRunning = false;
+
+    document.getElementById("startButton").disabled = false;
+    document.getElementById("stopButton").disabled = true;
+
+    setStatus("Камеру зупинено.");
+
+  } catch (error) {
+
+    setStatus(
+      "Помилка зупинки камери: " + error.message,
+      "error"
+    );
+  }
+}
+
+
+// ======================================================
+// РУЧНЕ ВВЕДЕННЯ
+// ======================================================
+
+function manualScan() {
+
+  initAudio();
+
+  const input = document.getElementById("manualNumber");
+
+  const number = normalizeNumber(input.value);
+
+  if (!number) {
+
+    setStatus(
+      "Введи інвентарний номер.",
+      "warning"
+    );
+
+    return;
+  }
+
+  processScan(number);
+
+  input.value = "";
+
+  input.blur();
+}
+
+
+document.getElementById("manualNumber")
+  .addEventListener("keydown", function(event) {
+
+    if (event.key === "Enter") {
+
+      event.preventDefault();
+
+      manualScan();
+    }
+  });
+
+
+// ======================================================
+// СТАТИСТИКА
+// ======================================================
+
+function updateStats(data) {
+
+  if (!data || !data.success) return;
+
+  document.getElementById("total").textContent =
+    data.total ?? "—";
+
+  document.getElementById("checked").textContent =
+    data.checked ?? "—";
+
+  document.getElementById("remaining").textContent =
+    data.remaining ?? "—";
+
+  document.getElementById("percent").textContent =
+    "Виконано: " + (data.percent ?? 0) + "%";
+}
+
+
+async function loadStats() {
+
+  try {
+
+    const data = await apiRequest("stats");
+
+    updateStats(data);
+
+  } catch (error) {
+
+    document.getElementById("percent").textContent =
+      "Не вдалося отримати статистику.";
+  }
+}
+
+
+// ======================================================
+// ІНІЦІАЛІЗАЦІЯ
+// ======================================================
+
+window.addEventListener("load", function() {
+
+  loadStats();
+
+  setInterval(function() {
+
+    if (!document.hidden) {
+      loadStats();
+    }
+
+  }, SETTINGS.statsInterval);
+
+});
+
+</script>
+
+</body>
+</html>
